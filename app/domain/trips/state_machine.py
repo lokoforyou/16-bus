@@ -1,12 +1,5 @@
-from enum import Enum
 from app.core.exceptions import InvalidStateTransitionError
-
-class TripStatus(str, Enum):
-    PLANNED = "planned"
-    BOARDING = "boarding"
-    ENROUTE = "enroute"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+from app.domain.trips.models import TripStatus
 
 _ALLOWED_TRANSITIONS = {
     TripStatus.PLANNED: {TripStatus.BOARDING, TripStatus.CANCELLED},
@@ -16,6 +9,8 @@ _ALLOWED_TRANSITIONS = {
     TripStatus.CANCELLED: set(),
 }
 
-def validate_transition(current: TripStatus, next: TripStatus):
-    if next not in _ALLOWED_TRANSITIONS.get(current, set()):
-        raise InvalidStateTransitionError(f"Cannot transition from {current} to {next}")
+
+def validate_transition(current: TripStatus | str, next: TripStatus) -> None:
+    current_state = TripStatus(current)
+    if next not in _ALLOWED_TRANSITIONS.get(current_state, set()):
+        raise InvalidStateTransitionError(f"Cannot transition from {current_state.value} to {next.value}")

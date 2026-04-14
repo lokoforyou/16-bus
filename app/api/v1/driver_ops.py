@@ -4,7 +4,7 @@ from app.domain.auth.models import UserRole
 from app.domain.auth.permissions import check_role
 from app.domain.auth.schemas import TokenData
 from app.domain.shifts.models import DriverShiftORM
-from app.domain.shifts.schemas import Shift, ShiftCreate, ShiftList
+from app.domain.shifts.schemas import Shift, ShiftCreate
 from app.domain.shifts.service import ShiftService
 
 router = APIRouter(prefix="/driver/shifts", tags=["driver-ops"])
@@ -17,8 +17,7 @@ async def start_shift(
     token_data: TokenData = Depends(get_current_user_token),
 ) -> DriverShiftORM:
     check_role(token_data, [UserRole.DRIVER])
-    # The service will validate org consistency
-    return shift_service.start_shift(data)
+    return shift_service.start_shift(data, actor_user_id=token_data.user_id)
 
 
 @router.post("/{shift_id}/end", response_model=Shift)
@@ -27,8 +26,8 @@ async def end_shift(
     shift_service: ShiftService = Depends(get_shift_service),
     token_data: TokenData = Depends(get_current_user_token),
 ) -> DriverShiftORM:
-    # Basic check - service will validate if shift belongs to driver if we pass driver_id later
-    return shift_service.end_shift(shift_id)
+    check_role(token_data, [UserRole.DRIVER])
+    return shift_service.end_shift(shift_id, actor_user_id=token_data.user_id)
 
 
 @router.get("/current", response_model=Shift)

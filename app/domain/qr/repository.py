@@ -10,7 +10,7 @@ class QRRepository:
 
     def save(self, token: QRTokenORM) -> QRTokenORM:
         self.session.add(token)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(token)
         return token
 
