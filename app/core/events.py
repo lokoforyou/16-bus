@@ -1,3 +1,4 @@
+import asyncio
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -37,6 +38,17 @@ class InMemoryEventChannel:
 event_channel = InMemoryEventChannel()
 
 
+def _topics_for_event(event: DomainEvent) -> list[str]:
+    topics = [f"event:{event.name}"]
+    if booking_id := event.payload.get("booking_id"):
+        topics.append(f"booking:{booking_id}")
+    if trip_id := event.payload.get("trip_id"):
+        topics.append(f"trip:{trip_id}")
+    if shift_id := event.payload.get("shift_id"):
+        topics.append(f"shift:{shift_id}")
+    return topics
+
+
 def emit_event(event: DomainEvent, session: Session | None = None) -> DomainEvent:
     owns_session = session is None
     db = session or get_session_factory()()
@@ -60,4 +72,16 @@ def emit_event(event: DomainEvent, session: Session | None = None) -> DomainEven
     finally:
         if owns_session:
             db.close()
+
+    envelope = {
+        "name": event.name,
+        "payload": event.payload,
+        "emitted_at": event.emitted_at.isoformat(),
+    }
+    for topic in _topics_for_event(event):
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(event_channel.publish(topic, envelope))
+        except RuntimeError:
+            asyncio.run(event_channel.publish(topic, envelope))
     return event

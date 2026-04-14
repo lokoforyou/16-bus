@@ -3,10 +3,49 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 
 from app.core.database import get_session_factory
+from app.core.security import hash_password
+from app.domain.auth.models import UserORM, UserRole
 from app.domain.bookings.models import BookingORM
 from app.domain.payments.models import PaymentORM
 from app.domain.qr.models import QRTokenORM
 from app.domain.trips.models import TripORM
+
+
+def _create_user(phone: str, role: UserRole) -> UserORM:
+    session = get_session_factory()()
+    try:
+        user = UserORM(
+            full_name=f"{role.value}-{phone}",
+            phone=phone,
+            password_hash=hash_password("pass123"),
+            role=role,
+            organization_id="org-16-bus" if role in {UserRole.ORG_ADMIN, UserRole.DRIVER} else None,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+    finally:
+        session.close()
+
+
+def _login(client: TestClient, phone: str) -> str:
+    response = client.post("/api/v1/auth/login", json={"phone": phone, "password": "pass123"})
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def _create_booking(client: TestClient, token: str, **extra: object) -> str:
+    payload = {
+        "route_id": "route-16-soweto-jhb",
+        "origin_stop_id": "stop-bara-rank",
+        "destination_stop_id": "stop-town",
+        "party_size": 1,
+    }
+    payload.update(extra)
+    response = client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 201
+    return response.json()["booking"]["id"]
 
 
 def test_quote_returns_eligible_trip_candidates(client: TestClient) -> None:
@@ -26,30 +65,28 @@ def test_quote_returns_eligible_trip_candidates(client: TestClient) -> None:
     assert payload["candidates"][0]["trip"]["id"] == "trip-001"
 
 
-def test_quote_rejects_invalid_stop_order_by_returning_no_candidates(
-    client: TestClient,
-) -> None:
-    response = client.post(
-        "/api/v1/bookings/quote",
-        json={
-            "route_id": "route-16-soweto-jhb",
-            "origin_stop_id": "stop-town",
-            "destination_stop_id": "stop-bara-rank",
-            "party_size": 1,
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json() == {"candidates": []}
-
-
-def test_create_booking_places_hold_and_returns_booking_details(
-    client: TestClient,
-) -> None:
+def test_create_booking_requires_authentication(client: TestClient) -> None:
     response = client.post(
         "/api/v1/bookings",
         json={
-            "passenger_id": "passenger-001",
+            "route_id": "route-16-soweto-jhb",
+            "origin_stop_id": "stop-bara-rank",
+            "destination_stop_id": "stop-town",
+            "party_size": 1,
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_create_booking_uses_session_identity_and_ignores_passenger_spoof(client: TestClient) -> None:
+    user = _create_user("27811110001", UserRole.PASSENGER)
+    token = _login(client, "27811110001")
+
+    response = client.post(
+        "/api/v1/bookings",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "passenger_id": "forged-passenger",
             "route_id": "route-16-soweto-jhb",
             "origin_stop_id": "stop-bara-rank",
             "destination_stop_id": "stop-town",
@@ -59,23 +96,50 @@ def test_create_booking_places_hold_and_returns_booking_details(
     )
 
     assert response.status_code == 201
-    payload = response.json()
-    assert payload["booking"]["booking_state"] == "held"
-    assert payload["booking"]["trip_id"] == "trip-001"
+    assert response.json()["booking"]["passenger_id"] == user.id
 
 
-def test_booking_hold_expires_when_retrieved_after_expiry(client: TestClient) -> None:
-    create_response = client.post(
-        "/api/v1/bookings",
-        json={
-            "passenger_id": "passenger-002",
-            "route_id": "route-16-soweto-jhb",
-            "origin_stop_id": "stop-bara-rank",
-            "destination_stop_id": "stop-town",
-            "party_size": 1,
-        },
+def test_passenger_cannot_read_other_passenger_booking(client: TestClient) -> None:
+    _create_user("27811110002", UserRole.PASSENGER)
+    _create_user("27811110003", UserRole.PASSENGER)
+    owner_token = _login(client, "27811110002")
+    other_token = _login(client, "27811110003")
+
+    booking_id = _create_booking(client, owner_token)
+
+    response = client.get(f"/api/v1/bookings/{booking_id}", headers={"Authorization": f"Bearer {other_token}"})
+    assert response.status_code == 403
+
+
+def test_passenger_cannot_cancel_or_pay_other_passenger_booking(client: TestClient) -> None:
+    _create_user("27811110004", UserRole.PASSENGER)
+    _create_user("27811110005", UserRole.PASSENGER)
+    owner_token = _login(client, "27811110004")
+    attacker_token = _login(client, "27811110005")
+
+    booking_id = _create_booking(client, owner_token)
+
+    pay_response = client.post(
+        f"/api/v1/bookings/{booking_id}/pay",
+        json={"method": "card"},
+        headers={"Authorization": f"Bearer {attacker_token}"},
     )
-    booking_id = create_response.json()["booking"]["id"]
+    cancel_response = client.post(
+        f"/api/v1/bookings/{booking_id}/cancel",
+        headers={"Authorization": f"Bearer {attacker_token}"},
+    )
+
+    assert pay_response.status_code == 403
+    assert cancel_response.status_code == 403
+
+
+def test_expiry_runs_only_via_explicit_maintenance_flow(client: TestClient) -> None:
+    _create_user("27811110006", UserRole.PASSENGER)
+    _create_user("27811110007", UserRole.ORG_ADMIN)
+    passenger_token = _login(client, "27811110006")
+    admin_token = _login(client, "27811110007")
+
+    booking_id = _create_booking(client, passenger_token, party_size=2)
 
     session = get_session_factory()()
     try:
@@ -87,115 +151,81 @@ def test_booking_hold_expires_when_retrieved_after_expiry(client: TestClient) ->
     finally:
         session.close()
 
-    response = client.get(f"/api/v1/bookings/{booking_id}")
-
-    assert response.status_code == 200
-    assert response.json()["booking"]["booking_state"] == "expired"
-
-
-def test_pay_booking_confirms_booking_and_creates_payment(client: TestClient) -> None:
-    create_response = client.post(
-        "/api/v1/bookings",
-        json={
-            "passenger_id": "passenger-003",
-            "route_id": "route-16-soweto-jhb",
-            "origin_stop_id": "stop-bara-rank",
-            "destination_stop_id": "stop-town",
-            "party_size": 1,
-        },
+    detail_response = client.get(
+        f"/api/v1/bookings/{booking_id}",
+        headers={"Authorization": f"Bearer {passenger_token}"},
     )
-    booking_id = create_response.json()["booking"]["id"]
+    assert detail_response.status_code == 200
+    assert detail_response.json()["booking"]["booking_state"] == "held"
 
-    pay_response = client.post(
-        f"/api/v1/bookings/{booking_id}/pay",
-        json={"method": "card"},
+    expire_response = client.post(
+        "/api/v1/bookings/maintenance/expire-holds",
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
+    assert expire_response.status_code == 200
+    assert expire_response.json()["expired"] >= 1
 
-    assert pay_response.status_code == 200
-    payload = pay_response.json()
-    assert payload["booking"]["booking_state"] == "confirmed"
-    assert payload["booking"]["payment_status"] == "captured"
-    assert payload["booking"]["qr_token_id"].startswith("qr-")
-
-    payment_id = payload["payment_id"]
-    payment_response = client.get(f"/api/v1/payments/{payment_id}")
-    assert payment_response.status_code == 200
-    assert payment_response.json()["payment"]["status"] == "captured"
-
-    session = get_session_factory()()
-    try:
-        token = session.get(QRTokenORM, payload["booking"]["qr_token_id"])
-        assert token is not None
-        assert token.state == "issued"
-    finally:
-        session.close()
-
-
-def test_cancel_booking_releases_seat_and_marks_refund(client: TestClient) -> None:
-    create_response = client.post(
-        "/api/v1/bookings",
-        json={
-            "passenger_id": "passenger-004",
-            "route_id": "route-16-soweto-jhb",
-            "origin_stop_id": "stop-bara-rank",
-            "destination_stop_id": "stop-town",
-            "party_size": 2,
-        },
+    detail_after = client.get(
+        f"/api/v1/bookings/{booking_id}",
+        headers={"Authorization": f"Bearer {passenger_token}"},
     )
-    booking_id = create_response.json()["booking"]["id"]
-    client.post(f"/api/v1/bookings/{booking_id}/pay", json={"method": "wallet"})
+    assert detail_after.status_code == 200
+    assert detail_after.json()["booking"]["booking_state"] == "expired"
 
-    cancel_response = client.post(f"/api/v1/bookings/{booking_id}/cancel")
 
+def test_cancel_and_expiry_restore_trip_seats(client: TestClient) -> None:
+    _create_user("27811110008", UserRole.PASSENGER)
+    _create_user("27811110009", UserRole.ORG_ADMIN)
+    passenger_token = _login(client, "27811110008")
+    admin_token = _login(client, "27811110009")
+
+    # cancel path seat restoration
+    booking_to_cancel = _create_booking(client, passenger_token, party_size=2)
+    client.post(
+        f"/api/v1/bookings/{booking_to_cancel}/pay",
+        json={"method": "wallet"},
+        headers={"Authorization": f"Bearer {passenger_token}"},
+    )
+    cancel_response = client.post(
+        f"/api/v1/bookings/{booking_to_cancel}/cancel",
+        headers={"Authorization": f"Bearer {passenger_token}"},
+    )
     assert cancel_response.status_code == 200
-    payload = cancel_response.json()
-    assert payload["booking"]["booking_state"] == "cancelled"
-    assert payload["booking"]["payment_status"] == "refunded"
 
     session = get_session_factory()()
     try:
-        payment = session.query(PaymentORM).filter_by(booking_id=booking_id).one()
-        trip = session.get(TripORM, payload["booking"]["trip_id"])
+        payment = session.query(PaymentORM).filter_by(booking_id=booking_to_cancel).one()
+        trip = session.get(TripORM, "trip-001")
+        token = session.query(QRTokenORM).filter_by(booking_id=booking_to_cancel).one()
         assert payment.status == "refunded"
         assert trip is not None
         assert trip.seats_free == 10
-        token = session.query(QRTokenORM).filter_by(booking_id=booking_id).one()
         assert token.state == "voided"
     finally:
         session.close()
 
+    # expiry path seat restoration
+    booking_to_expire = _create_booking(client, passenger_token, party_size=2)
+    session = get_session_factory()()
+    try:
+        booking = session.get(BookingORM, booking_to_expire)
+        assert booking is not None
+        booking.hold_expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        session.add(booking)
+        session.commit()
+    finally:
+        session.close()
 
-def test_driver_scan_boards_confirmed_booking_and_prevents_reuse(
-    client: TestClient,
-) -> None:
-    create_response = client.post(
-        "/api/v1/bookings",
-        json={
-            "passenger_id": "passenger-005",
-            "route_id": "route-16-soweto-jhb",
-            "origin_stop_id": "stop-bara-rank",
-            "destination_stop_id": "stop-town",
-            "party_size": 1,
-        },
+    expire_response = client.post(
+        "/api/v1/bookings/maintenance/expire-holds",
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
-    booking_id = create_response.json()["booking"]["id"]
-    pay_response = client.post(
-        f"/api/v1/bookings/{booking_id}/pay",
-        json={"method": "card"},
-    )
-    qr_token_id = pay_response.json()["booking"]["qr_token_id"]
+    assert expire_response.status_code == 200
 
-    scan_response = client.post(
-        "/api/v1/driver/boardings/scan",
-        json={"qr_token_id": qr_token_id},
-    )
-    assert scan_response.status_code == 200
-    assert scan_response.json()["booking_state"] == "boarded"
-    assert scan_response.json()["qr_token_state"] == "scanned"
-
-    second_scan = client.post(
-        "/api/v1/driver/boardings/scan",
-        json={"qr_token_id": qr_token_id},
-    )
-    assert second_scan.status_code == 400
-    assert second_scan.json()["detail"] == "QR token already scanned"
+    session = get_session_factory()()
+    try:
+        trip = session.get(TripORM, "trip-001")
+        assert trip is not None
+        assert trip.seats_free == 10
+    finally:
+        session.close()

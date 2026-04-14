@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from app.core.events import DomainEvent, emit_event
 from app.core.exceptions import ConflictError, DomainRuleViolationError, NotFoundError, PermissionDeniedError
 from app.domain.drivers.repository import DriverRepository
 from app.domain.shifts.models import DriverShiftORM, ShiftStatus
@@ -51,7 +52,14 @@ class ShiftService:
             organization_id=driver.organization_id,
             status=ShiftStatus.ACTIVE,
         )
-        return self.repository.create(shift)
+        shift = self.repository.create(shift)
+        emit_event(
+            DomainEvent(
+                "shift.started",
+                {"shift_id": shift.id, "driver_id": shift.driver_id, "vehicle_id": shift.vehicle_id, "organization_id": shift.organization_id},
+            )
+        )
+        return shift
 
     def end_shift(self, shift_id: str, actor_user_id: str | None = None) -> DriverShiftORM:
         shift = self.repository.get_by_id(shift_id)
@@ -67,7 +75,14 @@ class ShiftService:
 
         shift.status = ShiftStatus.COMPLETED
         shift.end_time = datetime.now(UTC)
-        return self.repository.update(shift)
+        shift = self.repository.update(shift)
+        emit_event(
+            DomainEvent(
+                "shift.ended",
+                {"shift_id": shift.id, "driver_id": shift.driver_id, "vehicle_id": shift.vehicle_id, "organization_id": shift.organization_id},
+            )
+        )
+        return shift
 
     def get_active_shift_for_driver(self, driver_user_id: str) -> DriverShiftORM:
         driver = self.driver_repository.get_by_user_id(driver_user_id)

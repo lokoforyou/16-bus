@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from app.core.config import get_settings
-from app.core.exceptions import ConflictError, DomainRuleViolationError, NotFoundError
+from app.core.exceptions import ConflictError, DomainRuleViolationError, NotFoundError, PermissionDeniedError
 from app.core.events import DomainEvent, emit_event
 from app.domain.bookings.models import BookingORM, BookingStatus
 from app.domain.bookings.repository import BookingRepository
@@ -62,7 +62,7 @@ class BookingService:
             )
         return BookingQuoteResponse(candidates=candidates)
 
-    def create_booking(self, request: CreateBookingRequest) -> BookingCreatedResponse:
+    def create_booking(self, request: CreateBookingRequest, passenger_id: str) -> BookingCreatedResponse:
         with self.booking_repository.session.begin():
             quote = self.quote(
                 BookingQuoteRequest(
@@ -87,7 +87,7 @@ class BookingService:
             booking = BookingORM(
                 id=f"booking-{uuid4().hex[:12]}",
                 trip_id=trip.id,
-                passenger_id=request.passenger_id,
+                passenger_id=passenger_id,
                 origin_stop_id=request.origin_stop_id,
                 destination_stop_id=request.destination_stop_id,
                 party_size=request.party_size,
@@ -106,20 +106,20 @@ class BookingService:
             )
             return BookingCreatedResponse(booking=booking)
 
-    def get_booking(self, booking_id: str) -> BookingDetailResponse:
+    def get_booking(self, booking_id: str, passenger_id: str) -> BookingDetailResponse:
         with self.booking_repository.session.begin():
-            self.expire_stale_holds()
             booking = self.booking_repository.get(booking_id)
             if booking is None:
                 raise NotFoundError("Booking not found")
+            self._assert_owner(booking, passenger_id)
             return BookingDetailResponse(booking=booking)
 
-    def pay_booking(self, booking_id: str, request: PaymentRequest):
+    def pay_booking(self, booking_id: str, request: PaymentRequest, passenger_id: str):
         with self.booking_repository.session.begin():
-            self.expire_stale_holds()
             booking = self.booking_repository.get_for_update(booking_id)
             if booking is None:
                 raise NotFoundError("Booking not found")
+            self._assert_owner(booking, passenger_id)
 
             validate_transition(booking.booking_state, BookingStatus.CONFIRMED)
             payment = self.payment_service.process_payment(
@@ -138,12 +138,12 @@ class BookingService:
             )
             return {"booking": booking, "payment_id": payment.id}
 
-    def cancel_booking(self, booking_id: str) -> BookingCancelResponse:
+    def cancel_booking(self, booking_id: str, passenger_id: str) -> BookingCancelResponse:
         with self.booking_repository.session.begin():
-            self.expire_stale_holds()
             booking = self.booking_repository.get_for_update(booking_id)
             if booking is None:
                 raise NotFoundError("Booking not found")
+            self._assert_owner(booking, passenger_id)
 
             validate_transition(booking.booking_state, BookingStatus.CANCELLED)
             trip = self.trip_repository.get_trip_for_update(booking.trip_id)
@@ -165,17 +165,23 @@ class BookingService:
             return BookingCancelResponse(booking=booking)
 
     def expire_stale_holds(self) -> int:
-        expired = 0
-        for booking in self.booking_repository.list_expired_holds():
-            trip = self.trip_repository.get_trip_for_update(booking.trip_id)
-            if trip is None:
-                continue
-            booking.booking_state = BookingStatus.EXPIRED.value
-            self.trip_repository.release_seats(trip, booking.party_size)
-            self.booking_repository.update(booking)
-            emit_event(
-                DomainEvent("booking.expired", {"booking_id": booking.id, "trip_id": booking.trip_id}),
-                session=self.booking_repository.session,
-            )
-            expired += 1
-        return expired
+        with self.booking_repository.session.begin():
+            expired = 0
+            for booking in self.booking_repository.list_expired_holds():
+                trip = self.trip_repository.get_trip_for_update(booking.trip_id)
+                if trip is None:
+                    continue
+                booking.booking_state = BookingStatus.EXPIRED.value
+                self.trip_repository.release_seats(trip, booking.party_size)
+                self.booking_repository.update(booking)
+                emit_event(
+                    DomainEvent("booking.expired", {"booking_id": booking.id, "trip_id": booking.trip_id}),
+                    session=self.booking_repository.session,
+                )
+                expired += 1
+            return expired
+
+    @staticmethod
+    def _assert_owner(booking: BookingORM, passenger_id: str) -> None:
+        if booking.passenger_id != passenger_id:
+            raise PermissionDeniedError("You do not have access to this booking")
