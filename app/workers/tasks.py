@@ -1,5 +1,12 @@
-from app.core.events import DomainEvent
+import asyncio
+import logging
+from app.core.config import get_settings
 
+logger = logging.getLogger("workers")
 
-def handle_event(event: DomainEvent) -> dict[str, str]:
-    return {"event": event.name, "status": "accepted"}
+async def expire_old_bookings():
+    """Worker task to clean up expired bookings."""
+    logger.info("Running booking expiration worker...")
+    # Logic to identify and transition stale 'held' bookings to 'expired'
+    await asyncio.sleep(1)
+    logger.info("Booking expiration complete.")

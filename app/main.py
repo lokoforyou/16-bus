@@ -4,6 +4,8 @@ from fastapi import FastAPI
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.exception_handlers import register_exception_handlers
+from app.core.logging import setup_logging
 from app.core.middleware import register_middleware
 
 
@@ -13,6 +15,7 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
+    setup_logging()
     settings = get_settings()
     app = FastAPI(
         title=settings.app_name,
@@ -22,6 +25,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     register_middleware(app)
+    register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["health"])

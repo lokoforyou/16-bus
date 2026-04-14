@@ -1,0 +1,9 @@
+from typing import Protocol
+
+class PaymentProvider(Protocol):
+    def initialize(self, amount: float, reference: str) -> str:
+        ...
+    def capture(self, transaction_id: str) -> bool:
+        ...
+    def refund(self, transaction_id: str) -> bool:
+        ...

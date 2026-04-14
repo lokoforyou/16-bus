@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.dependencies import get_payment_service
+from app.api.deps import get_payment_service
 from app.domain.payments.schemas import PaymentDetailResponse
 from app.domain.payments.service import PaymentService
 

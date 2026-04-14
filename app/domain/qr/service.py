@@ -1,6 +1,12 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.core.exceptions import (
+    ConflictError,
+    DomainRuleViolationError,
+    InvalidStateTransitionError,
+    NotFoundError,
+)
 from app.core.events import DomainEvent, emit_event
 from app.domain.bookings.repository import BookingRepository
 from app.domain.qr.models import QRTokenORM
@@ -41,17 +47,17 @@ class QRService:
     def validate_and_scan(self, request: BoardingScanRequest) -> BoardingScanResponse:
         token = self.qr_repository.get(request.qr_token_id)
         if token is None:
-            raise ValueError("QR token not found")
+            raise NotFoundError("QR token not found")
         if token.state == "scanned":
-            raise ValueError("QR token already scanned")
+            raise ConflictError("QR token already scanned")
         if token.state in {"voided", "expired"}:
-            raise ValueError("QR token is not valid for boarding")
+            raise DomainRuleViolationError("QR token is not valid for boarding")
 
         booking = self.booking_repository.get(token.booking_id)
         if booking is None:
-            raise ValueError("Booking not found")
+            raise NotFoundError("Booking not found")
         if booking.booking_state != "confirmed":
-            raise ValueError("Only confirmed bookings can be boarded")
+            raise InvalidStateTransitionError("Only confirmed bookings can be boarded")
 
         token.state = "scanned"
         token.scanned_at = datetime.now(UTC)

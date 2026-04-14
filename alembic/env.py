@@ -7,11 +7,18 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.core.database import Base, _normalize_database_url
+import app.domain.auth.models  # noqa: F401
 import app.domain.bookings.models  # noqa: F401
+import app.domain.compliance.models  # noqa: F401
+import app.domain.drivers.models  # noqa: F401
+import app.domain.organizations.models  # noqa: F401
 import app.domain.payments.models  # noqa: F401
 import app.domain.qr.models  # noqa: F401
 import app.domain.routes.models  # noqa: F401
+import app.domain.shifts.models  # noqa: F401
+import app.domain.telemetry.models  # noqa: F401
 import app.domain.trips.models  # noqa: F401
+import app.domain.vehicles.models  # noqa: F401
 
 
 config = context.config

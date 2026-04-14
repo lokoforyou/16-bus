@@ -2,21 +2,49 @@
 
 FastAPI scaffold for the `16 Bus` South African taxi operations platform.
 
-## Run locally
+## Getting Started
+
+### Prerequisites
+
+- [uv](https://github.com/astral-sh/uv)
+- [Docker](https://www.docker.com/)
+
+### Setup
+
+1. Copy environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Install dependencies:
+   ```bash
+   uv sync
+   ```
+
+3. Spin up infrastructure (Database & Redis):
+   ```bash
+   docker compose up -d
+   ```
+
+4. Run migrations:
+   ```bash
+   uv run alembic upgrade head
+   ```
+
+5. Seed reference data:
+   ```bash
+   uv run python -m app.core.bootstrap seed
+   ```
+
+### Run locally
 
 ```bash
-uv venv .venv
-.venv\Scripts\activate
-uv sync --extra dev
-uv run alembic upgrade head
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
-## Migrations
-
+Or using the Makefile:
 ```bash
-uv run alembic upgrade head
-uv run alembic current
+make run
 ```
 
 ## Structure
@@ -28,3 +56,9 @@ uv run alembic current
 - `app/integrations`: external provider adapters
 - `app/workers`: async consumers and background task hooks
 - `tests`: backend smoke tests
+
+## Testing
+
+```bash
+pytest
+```

@@ -1,11 +1,11 @@
+from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
 from app.domain.payments.models import PaymentORM
 
 
 class PaymentRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session):
         self.session = session
 
     def save(self, payment: PaymentORM) -> PaymentORM:
@@ -14,14 +14,6 @@ class PaymentRepository:
         self.session.refresh(payment)
         return payment
 
-    def get(self, payment_id: str) -> PaymentORM | None:
-        return self.session.get(PaymentORM, payment_id)
-
-    def get_latest_for_booking(self, booking_id: str) -> PaymentORM | None:
-        statement = (
-            select(PaymentORM)
-            .where(PaymentORM.booking_id == booking_id)
-            .order_by(PaymentORM.settled_at.desc().nullslast(), PaymentORM.id.desc())
-            .limit(1)
-        )
-        return self.session.scalars(statement).first()
+    def get_latest_for_booking(self, booking_id: str) -> Optional[PaymentORM]:
+        stmt = select(PaymentORM).where(PaymentORM.booking_id == booking_id).order_by(PaymentORM.settled_at.desc())
+        return self.session.execute(stmt).scalars().first()

@@ -24,6 +24,8 @@ def reset_app_state() -> None:
     command.upgrade(alembic_config, "head")
     yield
     clear_database_caches()
+    from app.core.database import get_engine
+    get_engine().dispose()
     if db_file.exists():
         db_file.unlink()
 
