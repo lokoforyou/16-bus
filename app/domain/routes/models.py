@@ -8,7 +8,7 @@ class RouteORM(Base):
     __tablename__ = "routes"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    organization_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
     code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     direction: Mapped[str] = mapped_column(String(32), nullable=False)
