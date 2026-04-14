@@ -20,50 +20,63 @@ def upgrade() -> None:
     op.execute(
         """
         INSERT INTO organizations (id, name, type, compliance_status, is_active)
-        SELECT 'org-16-bus', '16 Bus Taxi Association', 'taxi_association', 'verified', 1
-        WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE id = 'org-16-bus')
+        SELECT DISTINCT t.organization_id, t.organization_id, 'taxi_association', 'verified', 1
+        FROM trips t
+        WHERE t.organization_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM organizations o WHERE o.id = t.organization_id)
         """
     )
+
     op.execute(
         """
         INSERT INTO users (id, full_name, phone, password_hash, role, organization_id, is_active)
-        SELECT 'user-driver-001', 'Driver 001', '27000001001', 'seeded-password', 'driver', 'org-16-bus', 1
-        WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = 'user-driver-001')
+        SELECT DISTINCT
+            'user-auto-' || t.driver_id,
+            'Auto Driver ' || t.driver_id,
+            'auto-' || t.driver_id,
+            'seeded-password',
+            'driver',
+            t.organization_id,
+            1
+        FROM trips t
+        WHERE t.driver_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM drivers d WHERE d.id = t.driver_id)
+          AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = 'user-auto-' || t.driver_id)
         """
     )
-    op.execute(
-        """
-        INSERT INTO users (id, full_name, phone, password_hash, role, organization_id, is_active)
-        SELECT 'user-driver-002', 'Driver 002', '27000001002', 'seeded-password', 'driver', 'org-16-bus', 1
-        WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = 'user-driver-002')
-        """
-    )
-    op.execute(
-        """
-        INSERT INTO vehicles (id, organization_id, plate_number, capacity, permit_number, compliance_status, is_active)
-        SELECT 'vehicle-001', 'org-16-bus', 'SEED-001', 16, NULL, 'verified', 1
-        WHERE NOT EXISTS (SELECT 1 FROM vehicles WHERE id = 'vehicle-001')
-        """
-    )
+
     op.execute(
         """
         INSERT INTO vehicles (id, organization_id, plate_number, capacity, permit_number, compliance_status, is_active)
-        SELECT 'vehicle-002', 'org-16-bus', 'SEED-002', 16, NULL, 'verified', 1
-        WHERE NOT EXISTS (SELECT 1 FROM vehicles WHERE id = 'vehicle-002')
+        SELECT DISTINCT
+            t.vehicle_id,
+            t.organization_id,
+            'AUTO-' || t.vehicle_id,
+            16,
+            NULL,
+            'verified',
+            1
+        FROM trips t
+        WHERE t.vehicle_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM vehicles v WHERE v.id = t.vehicle_id)
         """
     )
+
     op.execute(
         """
         INSERT INTO drivers (id, organization_id, user_id, full_name, phone, licence_number, pdp_verified, is_active)
-        SELECT 'driver-001', 'org-16-bus', 'user-driver-001', 'Driver 001', '27111111001', 'LIC-001', 1, 1
-        WHERE NOT EXISTS (SELECT 1 FROM drivers WHERE id = 'driver-001')
-        """
-    )
-    op.execute(
-        """
-        INSERT INTO drivers (id, organization_id, user_id, full_name, phone, licence_number, pdp_verified, is_active)
-        SELECT 'driver-002', 'org-16-bus', 'user-driver-002', 'Driver 002', '27111111002', 'LIC-002', 1, 1
-        WHERE NOT EXISTS (SELECT 1 FROM drivers WHERE id = 'driver-002')
+        SELECT DISTINCT
+            t.driver_id,
+            t.organization_id,
+            'user-auto-' || t.driver_id,
+            'Auto Driver ' || t.driver_id,
+            'auto-driver-' || t.driver_id,
+            'AUTO-' || t.driver_id,
+            1,
+            1
+        FROM trips t
+        WHERE t.driver_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM drivers d WHERE d.id = t.driver_id)
         """
     )
 
