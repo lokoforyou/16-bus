@@ -16,6 +16,8 @@ from app.domain.payments.schemas import PaymentRequest
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
+
+# This endpoint is public and returns a ranked list of eligible trip candidates.
 @router.post("/quote", response_model=BookingQuoteResponse)
 async def quote_booking(
     request: BookingQuoteRequest,
@@ -30,10 +32,10 @@ async def quote_booking(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_booking(
-    request: CreateBookingRequest,
+    token_data: TokenData = Depends(get_current_user_token),
     booking_service: BookingService = Depends(get_booking_service),
 ) -> BookingCreatedResponse:
-    return booking_service.create_booking(request)
+    return booking_service.create_booking(token_data.user_id, request.route_id, request.origin_stop_id, request.destination_stop_id, request.party_size, request.booking_channel)
 
 
 @router.get("/{booking_id}", response_model=BookingDetailResponse)

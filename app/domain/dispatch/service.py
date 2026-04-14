@@ -13,14 +13,25 @@ class TripCandidate:
     estimated_fare: float
 
 
+class PricingPolicy:
+    def __init__(self, base_fare: float = 18.0, per_passenger_rate: float = 2.5):
+        self.base_fare = base_fare
+        self.per_passenger_rate = per_passenger_rate
+
+    def calculate_fare(self, party_size: int) -> float:
+        return round(self.base_fare + (party_size * self.per_passenger_rate), 2)
+
+
 class DispatchService:
     def __init__(
         self,
         route_repository: RouteRepository,
         trip_repository: TripRepository,
+        pricing_policy: PricingPolicy = PricingPolicy(),
     ) -> None:
         self.route_repository = route_repository
         self.trip_repository = trip_repository
+        self.pricing_policy = pricing_policy
 
     def find_trip_candidates(
         self,
@@ -51,7 +62,7 @@ class DispatchService:
                     // 60
                 ),
             )
-            estimated_fare = round(18.0 + (party_size * 2.5), 2)
+            estimated_fare = self.pricing_policy.calculate_fare(party_size)
             candidates.append(
                 TripCandidate(
                     trip=trip,

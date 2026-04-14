@@ -172,12 +172,14 @@ def get_booking_service(
     booking_repository: BookingRepository = Depends(get_booking_repository),
     payment_service: PaymentService = Depends(get_payment_service),
     qr_service: QRService = Depends(get_qr_service),
+    dispatch_service: DispatchService = Depends(get_dispatch_service),
 ) -> BookingService:
     return BookingService(
         trip_repository=trip_repository,
         booking_repository=booking_repository,
         payment_service=payment_service,
         qr_service=qr_service,
+        dispatch_service=dispatch_service,
     )
 
 
