@@ -1,6 +1,8 @@
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -47,9 +49,9 @@ def emit_event(event: DomainEvent, session: Session | None = None) -> DomainEven
                 """
             ),
             {
-                "id": f"evt-{event.emitted_at.timestamp()}-{event.name}",
+                "id": f"evt-{uuid4().hex}",
                 "name": event.name,
-                "payload": str(event.payload),
+                "payload": json.dumps(event.payload),
                 "emitted_at": event.emitted_at,
             },
         )

@@ -52,10 +52,10 @@ def test_overbooking_is_rejected(client: TestClient) -> None:
             "route_id": "route-16-soweto-jhb",
             "origin_stop_id": "stop-bara-rank",
             "destination_stop_id": "stop-town",
-            "party_size": 99,
+            "party_size": 16,
         },
     )
-    assert response.status_code == 422
+    assert response.status_code == 400
 
 
 def test_trip_create_rejects_cross_org_driver(client: TestClient) -> None:

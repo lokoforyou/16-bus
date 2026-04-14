@@ -22,7 +22,7 @@ def upgrade() -> None:
         "domain_events",
         sa.Column("id", sa.String(length=128), nullable=False),
         sa.Column("name", sa.String(length=128), nullable=False),
-        sa.Column("payload", sa.Text(), nullable=False),
+        sa.Column("payload", sa.JSON(), nullable=False),
         sa.Column("emitted_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
