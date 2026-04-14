@@ -135,15 +135,27 @@ def get_trip_repository(db: Session = Depends(get_db)) -> TripRepository:
 
 def get_trip_service(
     trip_repository: TripRepository = Depends(get_trip_repository),
+    route_repository: RouteRepository = Depends(get_route_repository),
+    driver_repository: DriverRepository = Depends(get_driver_repository),
+    vehicle_repository: VehicleRepository = Depends(get_vehicle_repository),
+    shift_repository: ShiftRepository = Depends(get_shift_repository),
 ) -> TripService:
-    return TripService(repository=trip_repository)
+    return TripService(
+        repository=trip_repository,
+        route_repository=route_repository,
+        driver_repository=driver_repository,
+        vehicle_repository=vehicle_repository,
+        shift_repository=shift_repository,
+    )
 
 
 def get_qr_repository(db: Session = Depends(get_db)) -> QRRepository:
     return QRRepository(session=db)
 
 
-def get_booking_repository(db: Session = Depends(get_db)) -> BookingRepository:
+def get_booking_repository(
+    db: Session = Depends(get_db),
+) -> BookingRepository:
     return BookingRepository(session=db)
 
 
@@ -169,6 +181,7 @@ def get_qr_service(
 
 def get_booking_service(
     trip_repository: TripRepository = Depends(get_trip_repository),
+    route_repository: RouteRepository = Depends(get_route_repository),
     booking_repository: BookingRepository = Depends(get_booking_repository),
     payment_service: PaymentService = Depends(get_payment_service),
     qr_service: QRService = Depends(get_qr_service),
@@ -176,6 +189,7 @@ def get_booking_service(
 ) -> BookingService:
     return BookingService(
         trip_repository=trip_repository,
+        route_repository=route_repository,
         booking_repository=booking_repository,
         payment_service=payment_service,
         qr_service=qr_service,

@@ -1,9 +1,18 @@
 from datetime import datetime
+from enum import Enum
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+
+class BookingStatus(str, Enum):
+    HELD = "held"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+    BOARDED = "boarded"
 
 
 class BookingORM(Base):
