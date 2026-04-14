@@ -27,7 +27,6 @@ class BookingQuoteResponse(BaseModel):
 
 
 class CreateBookingRequest(BaseModel):
-    passenger_id: str
     route_id: str
     origin_stop_id: str
     destination_stop_id: str

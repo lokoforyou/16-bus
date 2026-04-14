@@ -24,8 +24,8 @@ class TripORM(Base):
         ForeignKey("route_variants.id"), nullable=False, index=True
     )
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
-    vehicle_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    driver_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    vehicle_id: Mapped[str] = mapped_column(ForeignKey("vehicles.id"), nullable=False, index=True)
+    driver_id: Mapped[str] = mapped_column(ForeignKey("drivers.id"), nullable=False, index=True)
     trip_type: Mapped[str] = mapped_column(String(32), nullable=False)
     planned_start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False, index=True)

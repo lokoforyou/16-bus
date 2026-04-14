@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -45,6 +45,10 @@ class StopORM(Base):
 
 class RouteStopORM(Base):
     __tablename__ = "route_stops"
+    __table_args__ = (
+        UniqueConstraint("route_variant_id", "sequence_number", name="uq_route_stops_variant_sequence"),
+        UniqueConstraint("route_variant_id", "stop_id", name="uq_route_stops_variant_stop"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     route_variant_id: Mapped[str] = mapped_column(

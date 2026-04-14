@@ -1,3 +1,4 @@
+from app.core.events import DomainEvent, emit_event
 from app.core.exceptions import DomainRuleViolationError, NotFoundError
 from app.domain.drivers.repository import DriverRepository
 from app.domain.routes.repository import RouteRepository
@@ -36,7 +37,15 @@ class TripService:
             trip = self.get_trip(trip_id)
             validate_transition(trip.state, new_state)
             trip.state = new_state.value
-            return self.repository.update(trip)
+            trip = self.repository.update(trip)
+            emit_event(
+                DomainEvent(
+                    "trip.state_changed",
+                    {"trip_id": trip.id, "state": trip.state, "organization_id": trip.organization_id},
+                ),
+                session=self.repository.session,
+            )
+            return trip
 
     def create_trip(self, data: TripCreate) -> TripORM:
         with self.repository.session.begin():
@@ -79,4 +88,9 @@ class TripService:
                 raise DomainRuleViolationError("Initial trip state must be planned or boarding")
 
             trip = TripORM(**data.model_dump())
-            return self.repository.create(trip)
+            trip = self.repository.create(trip)
+            emit_event(
+                DomainEvent("trip.created", {"trip_id": trip.id, "organization_id": trip.organization_id, "state": trip.state}),
+                session=self.repository.session,
+            )
+            return trip
