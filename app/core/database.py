@@ -50,14 +50,17 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def import_all_models() -> None:
+    import app.core.audit  # noqa: F401
     import app.core.events  # noqa: F401
     import app.domain.auth.models  # noqa: F401
     import app.domain.bookings.models  # noqa: F401
     import app.domain.compliance.models  # noqa: F401
     import app.domain.drivers.models  # noqa: F401
     import app.domain.organizations.models  # noqa: F401
+    import app.domain.policies.models  # noqa: F401
     import app.domain.payments.models  # noqa: F401
     import app.domain.qr.models  # noqa: F401
+    import app.domain.ranks.models  # noqa: F401
     import app.domain.routes.models  # noqa: F401
     import app.domain.shifts.models  # noqa: F401
     import app.domain.telemetry.models  # noqa: F401

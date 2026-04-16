@@ -14,6 +14,7 @@ from app.domain.organizations.models import OrganizationORM, OrganizationType
 from app.domain.routes.models import RouteORM, RouteStopORM, RouteVariantORM, StopORM
 from app.domain.trips.models import TripORM
 from app.domain.vehicles.models import VehicleORM
+from app.domain.trips.models import TripStatus
 
 
 def _seed_tui_data() -> None:
@@ -101,9 +102,16 @@ def test_tui_can_login_and_accept_trip(monkeypatch) -> None:
 
     BusctlTerminalApp(console=console, input_fn=input_fn).run()
 
+    session = get_session_factory()()
+    try:
+        trip = session.get(TripORM, "trip-tui")
+        assert trip is not None
+        assert trip.state == TripStatus.BOARDING.value
+    finally:
+        session.close()
+
     output = captured.getvalue()
     assert "Logged in." in output
-    assert "Accepted Trip" in output
     assert temp_session_path.exists()
 
     temp_session_path.unlink(missing_ok=True)

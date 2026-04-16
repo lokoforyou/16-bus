@@ -50,9 +50,11 @@ app/cli/commands/shifts.py
 app/cli/commands/stops.py
 app/cli/commands/system.py
 app/cli/commands/trips.py
+app/cli/commands/ui.py
 app/cli/commands/users.py
 app/cli/commands/vehicles.py
 app/core/__init__.py
+app/core/audit.py
 app/core/bootstrap.py
 app/core/cache.py
 app/core/config.py
@@ -99,12 +101,17 @@ app/domain/payments/provider_contracts.py
 app/domain/payments/repository.py
 app/domain/payments/schemas.py
 app/domain/payments/service.py
+app/domain/policies/__init__.py
+app/domain/policies/models.py
+app/domain/policies/repository.py
 app/domain/qr/__init__.py
 app/domain/qr/models.py
 app/domain/qr/repository.py
 app/domain/qr/schemas.py
 app/domain/qr/service.py
 app/domain/ranks/__init__.py
+app/domain/ranks/models.py
+app/domain/ranks/repository.py
 app/domain/reporting/__init__.py
 app/domain/routes/__init__.py
 app/domain/routes/models.py
@@ -137,6 +144,8 @@ app/integrations/payments_provider.py
 app/integrations/sms_provider.py
 app/integrations/ussd_provider.py
 app/integrations/payments/mock_provider.py
+app/tui/__init__.py
+app/tui/terminal.py
 app/workers/__init__.py
 app/workers/consumers.py
 app/workers/tasks.py
@@ -145,6 +154,8 @@ tests/test_architecture_repairs.py
 tests/test_auth.py
 tests/test_bookings.py
 tests/test_cli_smoke.py
+tests/test_dispatch_board.py
 tests/test_health.py
 tests/test_ops.py
 tests/test_organizations.py
+tests/test_tui.py

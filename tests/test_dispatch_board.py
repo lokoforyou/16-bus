@@ -1,5 +1,3 @@
-from rich.console import Console
-
 from app.application.context import Actor
 from app.core.database import get_session_factory
 from app.core.security import hash_password
@@ -73,19 +71,11 @@ def _seed_dispatch_data() -> None:
 def test_dispatch_board_renders_active_trips_and_events(monkeypatch) -> None:
     _seed_dispatch_data()
 
-    captured = []
-
-    class DummyConsole(Console):
-        def print(self, *args, **kwargs):
-            captured.append(" ".join(str(arg) for arg in args))
-
-    app = BusctlTerminalApp(console=DummyConsole(), input_fn=lambda _: "quit")
+    app = BusctlTerminalApp(input_fn=lambda _: "quit")
     app._cached_session = type("SessionStub", (), {"actor": Actor(user_id="user-dsp", role=UserRole.ORG_ADMIN, organization_id="org-dsp", source="test")})()
 
     # Render once against the seeded data.
     with app._services(app._current_actor()) as services:
         renderable = app._render_dispatch_board(services)
         assert renderable is not None
-        app.console.print(renderable)
-
-    assert any("Dispatch Board" in entry for entry in captured)
+        assert str(renderable.title) == "Dispatch Board"

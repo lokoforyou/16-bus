@@ -9,6 +9,7 @@ from uuid import uuid4
 from sqlalchemy import DateTime, JSON, String
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from app.core.audit import record_audit_log
 from app.core.database import Base
 
 EventListener = Callable[["DomainEvent"], Any | Awaitable[Any]]
@@ -74,6 +75,7 @@ def persist_event(session: Session, event: DomainEvent) -> None:
             emitted_at=event.emitted_at,
         )
     )
+    record_audit_log(session, action=event.name, payload=event.payload)
     session.flush()
 
 
