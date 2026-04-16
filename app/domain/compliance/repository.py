@@ -7,6 +7,6 @@ class ComplianceRepository:
 
     def record_boarding(self, boarding: BoardingORM) -> BoardingORM:
         self.session.add(boarding)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(boarding)
         return boarding

@@ -21,6 +21,12 @@ class TripRepository:
             stmt = stmt.where(TripORM.organization_id == organization_id)
         return list(self.session.scalars(stmt).all())
 
+    def list_active_trips(self, route_id: str | None = None) -> list[TripORM]:
+        stmt = select(TripORM).where(TripORM.state.in_(("planned", "boarding", "enroute")))
+        if route_id:
+            stmt = stmt.where(TripORM.route_id == route_id)
+        return list(self.session.scalars(stmt).all())
+
     def create(self, trip: TripORM) -> TripORM:
         self.session.add(trip)
         self.session.flush()

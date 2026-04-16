@@ -1,52 +1,48 @@
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_route_service, get_current_user_token
-from app.domain.auth.models import UserRole
-from app.domain.auth.permissions import check_org_ownership, check_role
-from app.domain.auth.schemas import TokenData
-from app.domain.routes.schemas import RouteListResponse, RouteStopListResponse, RouteCreate, RouteVariantCreate, RouteStopCreate
-from app.domain.routes.service import RouteAdminService
+from app.api.deps import get_application_services
+from app.application import ApplicationServices
+from app.domain.routes.schemas import (
+    RouteCreate,
+    RouteListResponse,
+    RouteStopCreate,
+    RouteStopListResponse,
+    RouteVariantCreate,
+)
 
 router = APIRouter(prefix="/routes", tags=["routes"])
 
 
 @router.get("", response_model=RouteListResponse)
 async def list_routes(
-    route_service: RouteAdminService = Depends(get_route_service),
+    services: ApplicationServices = Depends(get_application_services),
 ) -> RouteListResponse:
-    return route_service.list_routes()
+    return services.routes.list()
 
 
 @router.get("/{route_id}/stops", response_model=RouteStopListResponse)
 async def list_route_stops(
     route_id: str,
-    route_service: RouteAdminService = Depends(get_route_service),
+    services: ApplicationServices = Depends(get_application_services),
 ) -> RouteStopListResponse:
-    return route_service.list_route_stops(route_id)
+    return services.routes.list_route_stops(route_id)
 
 
 @router.post("")
 async def create_route(
     data: RouteCreate,
-    route_service: RouteAdminService = Depends(get_route_service),
-    token_data: TokenData = Depends(get_current_user_token),
+    services: ApplicationServices = Depends(get_application_services),
 ):
-    check_role(token_data, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
-    check_org_ownership(token_data, data.organization_id)
-    return route_service.create_route(data)
+    return services.routes.create(data)
 
 
 @router.post("/{route_id}/variants")
 async def create_variant(
     route_id: str,
     data: RouteVariantCreate,
-    route_service: RouteAdminService = Depends(get_route_service),
-    token_data: TokenData = Depends(get_current_user_token),
+    services: ApplicationServices = Depends(get_application_services),
 ):
-    check_role(token_data, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
-    route = route_service.get_route(route_id)
-    check_org_ownership(token_data, route.organization_id)
-    return route_service.create_variant(route_id, data)
+    return services.routes.create_variant(route_id, data)
 
 
 @router.post("/{route_id}/variants/{variant_id}/stops")
@@ -54,10 +50,6 @@ async def add_stop_to_variant(
     route_id: str,
     variant_id: str,
     data: RouteStopCreate,
-    route_service: RouteAdminService = Depends(get_route_service),
-    token_data: TokenData = Depends(get_current_user_token),
+    services: ApplicationServices = Depends(get_application_services),
 ):
-    check_role(token_data, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
-    route = route_service.get_route(route_id)
-    check_org_ownership(token_data, route.organization_id)
-    return route_service.add_stop_to_variant(route_id, variant_id, data)
+    return services.routes.add_stop_to_variant(route_id, variant_id, data)

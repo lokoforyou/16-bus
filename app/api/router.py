@@ -10,8 +10,10 @@ from app.api.v1 import (
     organizations,
     passengers,
     payments,
+    qr,
     realtime,
     routes,
+    stops,
     trips,
     vehicles,
 )
@@ -21,10 +23,12 @@ v1_router = APIRouter(prefix="/v1")
 
 v1_router.include_router(auth.router)
 v1_router.include_router(passengers.router)
+v1_router.include_router(stops.router)
 v1_router.include_router(routes.router)
 v1_router.include_router(trips.router)
 v1_router.include_router(bookings.router)
 v1_router.include_router(payments.router)
+v1_router.include_router(qr.router)
 v1_router.include_router(driver_ops.router)
 v1_router.include_router(drivers.router)
 v1_router.include_router(vehicles.router)

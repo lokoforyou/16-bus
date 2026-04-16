@@ -2,7 +2,7 @@ from app.core.exceptions import InvalidStateTransitionError
 from app.domain.trips.models import TripStatus
 
 _ALLOWED_TRANSITIONS = {
-    TripStatus.PLANNED: {TripStatus.BOARDING, TripStatus.CANCELLED},
+    TripStatus.PLANNED: {TripStatus.BOARDING, TripStatus.ENROUTE, TripStatus.CANCELLED},
     TripStatus.BOARDING: {TripStatus.ENROUTE, TripStatus.CANCELLED},
     TripStatus.ENROUTE: {TripStatus.COMPLETED},
     TripStatus.COMPLETED: set(),

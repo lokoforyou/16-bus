@@ -25,11 +25,12 @@ class VehicleRepository:
 
     def create(self, vehicle: VehicleORM) -> VehicleORM:
         self.session.add(vehicle)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(vehicle)
         return vehicle
 
     def update(self, vehicle: VehicleORM) -> VehicleORM:
-        self.session.commit()
+        self.session.add(vehicle)
+        self.session.flush()
         self.session.refresh(vehicle)
         return vehicle

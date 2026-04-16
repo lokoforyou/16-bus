@@ -7,6 +7,8 @@ requires-python = ">=3.11"
 dependencies = [
     "alembic>=1.14,<2.0",
     "fastapi>=0.115,<1.0",
+    "rich>=13.0,<14.0",
+    "typer>=0.12,<1.0",
     "uvicorn[standard]>=0.30,<1.0",
     "pydantic-settings>=2.3,<3.0",
     "sqlalchemy>=2.0,<3.0",
@@ -15,6 +17,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3,<4.0",
     "passlib[bcrypt]>=1.7.4",
     "bcrypt==4.0.1",
+    "venv",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +32,9 @@ script_location = "alembic"
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project.scripts]
+busctl = "app.cli.main:app"
 
 [tool.setuptools.packages.find]
 include = ["app*"]

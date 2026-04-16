@@ -17,11 +17,18 @@ class UserRepository:
 
     def create(self, user: UserORM) -> UserORM:
         self.session.add(user)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(user)
         return user
 
     def update(self, user: UserORM) -> UserORM:
-        self.session.commit()
+        self.session.add(user)
+        self.session.flush()
         self.session.refresh(user)
         return user
+
+    def list(self, organization_id: str | None = None) -> list[UserORM]:
+        stmt = select(UserORM)
+        if organization_id:
+            stmt = stmt.where(UserORM.organization_id == organization_id)
+        return list(self.session.execute(stmt).scalars().all())

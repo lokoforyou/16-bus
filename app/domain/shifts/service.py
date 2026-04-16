@@ -57,7 +57,8 @@ class ShiftService:
             DomainEvent(
                 "shift.started",
                 {"shift_id": shift.id, "driver_id": shift.driver_id, "vehicle_id": shift.vehicle_id, "organization_id": shift.organization_id},
-            )
+            ),
+            session=self.repository.session,
         )
         return shift
 
@@ -80,7 +81,8 @@ class ShiftService:
             DomainEvent(
                 "shift.ended",
                 {"shift_id": shift.id, "driver_id": shift.driver_id, "vehicle_id": shift.vehicle_id, "organization_id": shift.organization_id},
-            )
+            ),
+            session=self.repository.session,
         )
         return shift
 

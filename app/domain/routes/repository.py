@@ -14,6 +14,12 @@ class RouteRepository:
     def list_routes(self) -> list[RouteORM]:
         return list(self.session.scalars(select(RouteORM)).all())
 
+    def list_stops(self, active_only: bool = False) -> list[StopORM]:
+        stmt = select(StopORM).order_by(StopORM.name.asc())
+        if active_only:
+            stmt = stmt.where(StopORM.active.is_(True))
+        return list(self.session.scalars(stmt).all())
+
     def get_variant(self, variant_id: str) -> RouteVariantORM | None:
         return self.session.get(RouteVariantORM, variant_id)
 
@@ -43,20 +49,50 @@ class RouteRepository:
         )
         return self.session.scalars(stmt).first()
 
+    def validate_stop_order(
+        self,
+        route_variant_id: str,
+        origin_stop_id: str,
+        destination_stop_id: str,
+    ) -> bool:
+        origin_sequence = self.get_stop_sequence(route_variant_id, origin_stop_id)
+        destination_sequence = self.get_stop_sequence(route_variant_id, destination_stop_id)
+        return (
+            origin_sequence is not None
+            and destination_sequence is not None
+            and origin_sequence < destination_sequence
+        )
+
     def create_route(self, route: RouteORM) -> RouteORM:
         self.session.add(route)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(route)
         return route
 
     def create_variant(self, variant: RouteVariantORM) -> RouteVariantORM:
         self.session.add(variant)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(variant)
         return variant
 
     def create_route_stop(self, route_stop: RouteStopORM) -> RouteStopORM:
         self.session.add(route_stop)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(route_stop)
         return route_stop
+
+    def create_stop(self, stop: StopORM) -> StopORM:
+        self.session.add(stop)
+        self.session.flush()
+        self.session.refresh(stop)
+        return stop
+
+    def update_stop(self, stop: StopORM) -> StopORM:
+        self.session.add(stop)
+        self.session.flush()
+        self.session.refresh(stop)
+        return stop
+
+    def delete_stop(self, stop: StopORM) -> None:
+        self.session.delete(stop)
+        self.session.flush()

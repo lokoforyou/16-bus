@@ -35,11 +35,12 @@ class ShiftRepository:
 
     def create(self, shift: DriverShiftORM) -> DriverShiftORM:
         self.session.add(shift)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(shift)
         return shift
 
     def update(self, shift: DriverShiftORM) -> DriverShiftORM:
-        self.session.commit()
+        self.session.add(shift)
+        self.session.flush()
         self.session.refresh(shift)
         return shift

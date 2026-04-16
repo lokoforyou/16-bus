@@ -40,7 +40,8 @@ class QRService:
             DomainEvent(
                 name="qr.issued",
                 payload={"qr_token_id": token.id, "booking_id": booking_id},
-            )
+            ),
+            session=self.qr_repository.session,
         )
         return token
 
@@ -69,7 +70,8 @@ class QRService:
             DomainEvent(
                 name="booking.boarded",
                 payload={"booking_id": booking.id, "trip_id": booking.trip_id},
-            )
+            ),
+            session=self.qr_repository.session,
         )
         return BoardingScanResponse(
             booking_id=booking.id,

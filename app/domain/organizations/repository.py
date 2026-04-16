@@ -21,11 +21,12 @@ class OrganizationRepository:
 
     def create(self, org: OrganizationORM) -> OrganizationORM:
         self.session.add(org)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(org)
         return org
 
     def update(self, org: OrganizationORM) -> OrganizationORM:
-        self.session.commit()
+        self.session.add(org)
+        self.session.flush()
         self.session.refresh(org)
         return org

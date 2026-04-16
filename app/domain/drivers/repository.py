@@ -29,11 +29,12 @@ class DriverRepository:
 
     def create(self, driver: DriverORM) -> DriverORM:
         self.session.add(driver)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(driver)
         return driver
 
     def update(self, driver: DriverORM) -> DriverORM:
-        self.session.commit()
+        self.session.add(driver)
+        self.session.flush()
         self.session.refresh(driver)
         return driver
