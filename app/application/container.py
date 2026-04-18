@@ -9,6 +9,7 @@ from app.application.services import (
     OrganizationApplicationService,
     PaymentApplicationService,
     QRApplicationService,
+    RankApplicationService,
     RouteApplicationService,
     ShiftApplicationService,
     StopApplicationService,
@@ -28,6 +29,8 @@ from app.domain.payments.repository import PaymentRepository
 from app.domain.payments.service import PaymentService
 from app.domain.qr.repository import QRRepository
 from app.domain.qr.service import QRService
+from app.domain.ranks.repository import RankQueueRepository
+from app.domain.ranks.service import RankService
 from app.domain.routes.repository import RouteRepository
 from app.domain.routes.service import RouteAdminService
 from app.domain.shifts.repository import ShiftRepository
@@ -55,9 +58,15 @@ class ApplicationServices:
         self.booking_repository = BookingRepository(session)
         self.payment_repository = PaymentRepository(session)
         self.qr_repository = QRRepository(session)
+        self.rank_repository = RankQueueRepository(session)
 
         self.route_domain_service = RouteAdminService(repository=self.route_repository)
-        self.trip_domain_service = TripService(repository=self.trip_repository)
+        self.trip_domain_service = TripService(
+            repository=self.trip_repository,
+            route_repository=self.route_repository,
+            driver_repository=self.driver_repository,
+            vehicle_repository=self.vehicle_repository,
+        )
         self.shift_domain_service = ShiftService(
             repository=self.shift_repository,
             driver_repository=self.driver_repository,
@@ -74,6 +83,14 @@ class ApplicationServices:
         self.qr_domain_service = QRService(
             qr_repository=self.qr_repository,
             booking_repository=self.booking_repository,
+        )
+        self.rank_domain_service = RankService(
+            repository=self.rank_repository,
+            booking_repository=self.booking_repository,
+            trip_repository=self.trip_repository,
+            route_repository=self.route_repository,
+            qr_service=self.qr_domain_service,
+            payment_service=self.payment_domain_service,
         )
         self.booking_domain_service = BookingService(
             trip_repository=self.trip_repository,
@@ -162,6 +179,12 @@ class ApplicationServices:
             actor,
             request_source=request_source,
             service=self.qr_domain_service,
+        )
+        self.ranks = RankApplicationService(
+            session,
+            actor,
+            request_source=request_source,
+            service=self.rank_domain_service,
         )
         self.system = SystemApplicationService(session, actor, request_source=request_source)
 

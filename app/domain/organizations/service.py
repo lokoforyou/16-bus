@@ -48,3 +48,7 @@ class OrganizationService:
             org.is_active = data.is_active
             
         return self.repository.update(org)
+
+    def delete_organization(self, org_id: str) -> None:
+        org = self.get_organization(org_id)
+        self.repository.delete(org)

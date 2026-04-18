@@ -9,9 +9,13 @@ from app.core.exceptions import (
 )
 from app.core.events import DomainEvent, emit_event
 from app.domain.bookings.repository import BookingRepository
+from app.domain.bookings.models import BookingStatus
+from app.domain.bookings.state_machine import validate_transition as validate_booking_transition
+from app.domain.events import DomainEventName
 from app.domain.qr.models import QRTokenORM
 from app.domain.qr.repository import QRRepository
 from app.domain.qr.schemas import BoardingScanRequest, BoardingScanResponse
+from app.domain.qr.state_machine import validate_transition as validate_qr_transition
 
 
 class QRService:
@@ -38,7 +42,7 @@ class QRService:
         self.qr_repository.save(token)
         emit_event(
             DomainEvent(
-                name="qr.issued",
+                name=DomainEventName.QR_ISSUED.value,
                 payload={"qr_token_id": token.id, "booking_id": booking_id},
             ),
             session=self.qr_repository.session,
@@ -57,19 +61,26 @@ class QRService:
         booking = self.booking_repository.get(token.booking_id)
         if booking is None:
             raise NotFoundError("Booking not found")
-        if booking.booking_state != "confirmed":
+        if booking.booking_state != BookingStatus.CONFIRMED.value:
             raise InvalidStateTransitionError("Only confirmed bookings can be boarded")
+        validate_booking_transition(booking.booking_state, BookingStatus.BOARDED)
+        validate_qr_transition(token.state, "scanned")
 
         token.state = "scanned"
         token.scanned_at = datetime.now(UTC)
         self.qr_repository.save(token)
 
-        booking.booking_state = "boarded"
+        booking.booking_state = BookingStatus.BOARDED.value
         self.booking_repository.update(booking)
         emit_event(
             DomainEvent(
-                name="booking.boarded",
-                payload={"booking_id": booking.id, "trip_id": booking.trip_id},
+                name=DomainEventName.BOOKING_BOARDED.value,
+                payload={
+                    "booking_id": booking.id,
+                    "trip_id": booking.trip_id,
+                    "stop_id": booking.origin_stop_id,
+                    "timestamp": datetime.now(UTC),
+                },
             ),
             session=self.qr_repository.session,
         )
@@ -86,6 +97,7 @@ class QRService:
             return None
         if token.state == "scanned":
             return token
+        validate_qr_transition(token.state, "voided")
         token.state = "voided"
         self.qr_repository.save(token)
         return token

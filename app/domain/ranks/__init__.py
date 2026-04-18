@@ -1,1 +1,1 @@
-"""Rank operations, tickets, and marshal workflows domain."""
+"""Rank queue and cash-at-rank workflows."""

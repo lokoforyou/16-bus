@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any, Awaitable, Callable
 from uuid import uuid4
 
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import DateTime, JSON, String
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
@@ -71,7 +72,7 @@ def persist_event(session: Session, event: DomainEvent) -> None:
         DomainEventRecordORM(
             id=event.id,
             name=event.name,
-            payload=event.payload,
+            payload=jsonable_encoder(event.payload),
             emitted_at=event.emitted_at,
         )
     )

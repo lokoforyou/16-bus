@@ -20,7 +20,7 @@ class RankQueueTicketORM(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     rank_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False, index=True)
+    trip_id: Mapped[str | None] = mapped_column(ForeignKey("trips.id"), nullable=True, index=True)
     queue_number: Mapped[int] = mapped_column(Integer, nullable=False)
     payment_status: Mapped[str] = mapped_column(String(32), nullable=False)
     qr_token_id: Mapped[str | None] = mapped_column(String(64), nullable=True)

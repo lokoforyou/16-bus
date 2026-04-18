@@ -27,6 +27,10 @@ class UserRepository:
         self.session.refresh(user)
         return user
 
+    def delete(self, user: UserORM) -> None:
+        self.session.delete(user)
+        self.session.flush()
+
     def list(self, organization_id: str | None = None) -> list[UserORM]:
         stmt = select(UserORM)
         if organization_id:

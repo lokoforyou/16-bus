@@ -34,6 +34,10 @@ class CreateBookingRequest(BaseModel):
     booking_channel: str = "app"
 
 
+class CreateBookingAdminRequest(CreateBookingRequest):
+    passenger_id: str
+
+
 class BookingRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,6 +54,12 @@ class BookingRead(BaseModel):
     forfeiture_fee_amount: float
     booking_channel: str
     qr_token_id: str | None = None
+
+
+class BookingListResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    items: list[BookingRead]
 
 
 class BookingCreatedResponse(BaseModel):

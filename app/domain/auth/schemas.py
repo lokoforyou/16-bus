@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 from app.domain.auth.models import UserRole
 
@@ -30,6 +30,10 @@ class User(UserBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserList(BaseModel):
+    items: List[User]
 
 
 class Token(BaseModel):

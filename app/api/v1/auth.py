@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import get_application_services
 from app.application import ApplicationServices
-from app.domain.auth.schemas import LoginRequest, Token, User
+from app.domain.auth.schemas import LoginRequest, Token, User, UserCreate
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -20,3 +20,11 @@ async def get_me(
     services: ApplicationServices = Depends(get_application_services),
 ):
     return services.auth.get_current_user()
+
+
+@router.post("/register", response_model=User)
+async def register(
+    request: UserCreate,
+    services: ApplicationServices = Depends(get_application_services),
+) -> User:
+    return services.auth.register(request)

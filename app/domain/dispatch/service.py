@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from app.core.exceptions import NotFoundError
 from app.domain.routes.repository import RouteRepository
 from app.domain.trips.models import TripORM
 from app.domain.trips.repository import TripRepository
@@ -41,8 +42,13 @@ class DispatchService:
         destination_stop_id: str,
         party_size: int,
     ) -> list[TripCandidate]:
+        route = self.route_repository.get_route(route_id)
+        if route is None:
+            raise NotFoundError("Route not found")
         candidates: list[TripCandidate] = []
         for trip in self.trip_repository.list_active_trips(route_id=route_id):
+            if trip.organization_id != route.organization_id:
+                continue
             if trip.seats_free < party_size:
                 continue
             if not self.route_repository.validate_stop_order(

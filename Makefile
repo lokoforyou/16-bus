@@ -1,4 +1,4 @@
-.PHONY: setup install test run migrate seed docker-up docker-down
+.PHONY: setup install test run migrate seed docker-up docker-down web-setup web-run web-build
 
 setup:
 	cp .env.example .env
@@ -24,3 +24,12 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+web-setup:
+	cd web && npm install
+
+web-run:
+	cd web && npm run dev
+
+web-build:
+	cd web && npm run build

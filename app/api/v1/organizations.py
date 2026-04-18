@@ -42,3 +42,12 @@ async def update_organization(
     services: ApplicationServices = Depends(get_application_services),
 ):
     return services.organizations.update(organization_id, data)
+
+
+@router.delete("/{organization_id}")
+async def delete_organization(
+    organization_id: str,
+    services: ApplicationServices = Depends(get_application_services),
+):
+    services.organizations.delete(organization_id)
+    return {"status": "deleted", "organization_id": organization_id}

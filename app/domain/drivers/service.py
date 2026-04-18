@@ -67,3 +67,7 @@ class DriverService:
             driver.is_active = data.is_active
             
         return self.repository.update(driver)
+
+    def delete_driver(self, driver_id: str) -> None:
+        driver = self.get_driver(driver_id)
+        self.repository.delete(driver)

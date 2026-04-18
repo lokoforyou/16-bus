@@ -15,6 +15,7 @@ from app.api.v1 import (
     routes,
     stops,
     trips,
+    users,
     vehicles,
 )
 
@@ -26,6 +27,7 @@ v1_router.include_router(passengers.router)
 v1_router.include_router(stops.router)
 v1_router.include_router(routes.router)
 v1_router.include_router(trips.router)
+v1_router.include_router(users.router)
 v1_router.include_router(bookings.router)
 v1_router.include_router(payments.router)
 v1_router.include_router(qr.router)

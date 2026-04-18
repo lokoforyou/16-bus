@@ -20,7 +20,7 @@ def upgrade() -> None:
     op.execute(
         """
         INSERT INTO organizations (id, name, type, compliance_status, is_active)
-        SELECT DISTINCT t.organization_id, t.organization_id, 'taxi_association', 'verified', 1
+        SELECT DISTINCT t.organization_id, t.organization_id, 'taxi_association', 'verified', true
         FROM trips t
         WHERE t.organization_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM organizations o WHERE o.id = t.organization_id)
@@ -37,7 +37,7 @@ def upgrade() -> None:
             'seeded-password',
             'driver',
             t.organization_id,
-            1
+            true
         FROM trips t
         WHERE t.driver_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM drivers d WHERE d.id = t.driver_id)
@@ -55,7 +55,7 @@ def upgrade() -> None:
             16,
             NULL,
             'verified',
-            1
+            true
         FROM trips t
         WHERE t.vehicle_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM vehicles v WHERE v.id = t.vehicle_id)
@@ -72,8 +72,8 @@ def upgrade() -> None:
             'Auto Driver ' || t.driver_id,
             'auto-driver-' || t.driver_id,
             'AUTO-' || t.driver_id,
-            1,
-            1
+            true,
+            true
         FROM trips t
         WHERE t.driver_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM drivers d WHERE d.id = t.driver_id)

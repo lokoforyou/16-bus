@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from app.core.exceptions import AuthenticationError, PermissionDeniedError
 from app.domain.auth.models import UserRole
 from app.domain.auth.schemas import TokenData
+from typing import List
 
 
 @dataclass(slots=True)
@@ -34,7 +35,7 @@ def require_authenticated(actor: Actor | None) -> Actor:
     return actor
 
 
-def require_roles(actor: Actor | None, allowed_roles: list[UserRole]) -> Actor:
+def require_roles(actor: Actor | None, allowed_roles: List[UserRole]) -> Actor:
     current_actor = require_authenticated(actor)
     if current_actor.role not in allowed_roles:
         raise PermissionDeniedError(

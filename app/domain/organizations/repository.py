@@ -30,3 +30,7 @@ class OrganizationRepository:
         self.session.flush()
         self.session.refresh(org)
         return org
+
+    def delete(self, org: OrganizationORM) -> None:
+        self.session.delete(org)
+        self.session.flush()

@@ -5,7 +5,7 @@ from app.core.exceptions import NotFoundError
 from app.core.security import hash_password
 from app.domain.auth.models import UserORM, UserRole
 from app.domain.auth.repository import UserRepository
-from app.domain.auth.schemas import LoginRequest, Token, UserCreate, UserUpdate
+from app.domain.auth.schemas import LoginRequest, Token, User, UserCreate, UserUpdate
 from app.domain.auth.service import AuthService
 from app.domain.bookings.repository import BookingRepository
 from app.domain.bookings.schemas import (
@@ -13,8 +13,10 @@ from app.domain.bookings.schemas import (
     BookingCreatedResponse,
     BookingDetailResponse,
     BookingPaymentResponse,
+    BookingRead,
     BookingQuoteRequest,
     BookingQuoteResponse,
+    CreateBookingAdminRequest,
     CreateBookingRequest,
 )
 from app.domain.bookings.service import BookingService
@@ -33,6 +35,9 @@ from app.domain.payments.service import PaymentService
 from app.domain.qr.repository import QRRepository
 from app.domain.qr.schemas import BoardingScanRequest, BoardingScanResponse
 from app.domain.qr.service import QRService
+from app.domain.ranks.repository import RankQueueRepository
+from app.domain.ranks.schemas import RankCashAuthorizationRequest, RankQueueTicketRead, RankTicketAssignRequest, RankTicketIssueRequest
+from app.domain.ranks.service import RankService
 from app.domain.routes.models import StopORM
 from app.domain.routes.repository import RouteRepository
 from app.domain.routes.schemas import (
@@ -52,7 +57,7 @@ from app.domain.shifts.schemas import ShiftCreate
 from app.domain.shifts.service import ShiftService
 from app.domain.trips.models import TripORM, TripStatus
 from app.domain.trips.repository import TripRepository
-from app.domain.trips.schemas import TripCreate
+from app.domain.trips.schemas import TripCreate, TripUpdate
 from app.domain.trips.service import TripService
 from app.domain.vehicles.models import VehicleORM
 from app.domain.vehicles.repository import VehicleRepository
@@ -76,9 +81,6 @@ class AuthApplicationService(ApplicationService):
         return self.service.get_user_by_id(actor.user_id)
 
     def register(self, data: UserCreate) -> UserORM:
-        require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
-        if self.actor and self.actor.role == UserRole.ORG_ADMIN:
-            require_org_access(self.actor, data.organization_id or self.actor.organization_id or "")
         return self.transact(lambda: self.service.register(data))
 
 
@@ -86,14 +88,19 @@ class UserApplicationService(ApplicationService):
     def __init__(self, *args, repository: UserRepository, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.repository = repository
+        self.service = AuthService(repository=repository)
 
-    def list_users(self, organization_id: str | None = None) -> list[UserORM]:
+    def list_users(self, organization_id: str | None = None) -> List[UserORM]:
         require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
         if organization_id:
             require_org_access(self.actor, organization_id)
         elif self.actor and self.actor.role != UserRole.SUPER_ADMIN:
             organization_id = self.actor.organization_id
         return self.repository.list(organization_id=organization_id)
+
+    def create_user(self, data: UserCreate) -> UserORM:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        return self.transact(lambda: self.service.register(data))
 
     def get_user(self, user_id: str) -> UserORM:
         require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
@@ -119,6 +126,12 @@ class UserApplicationService(ApplicationService):
 
         return self.transact(operation)
 
+    def delete_user(self, user_id: str) -> dict[str, str]:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        user = self.get_user(user_id)
+        self.transact(lambda: self.repository.delete(user))
+        return {"status": "deleted", "user_id": user_id}
+
 
 class OrganizationApplicationService(ApplicationService):
     def __init__(self, *args, repository: OrganizationRepository, **kwargs) -> None:
@@ -129,7 +142,7 @@ class OrganizationApplicationService(ApplicationService):
         require_roles(self.actor, [UserRole.SUPER_ADMIN])
         return self.transact(lambda: self.service.create_organization(data))
 
-    def list(self) -> list[OrganizationORM]:
+    def list(self) -> List[OrganizationORM]:
         return self.service.list_organizations()
 
     def get(self, organization_id: str) -> OrganizationORM:
@@ -143,6 +156,11 @@ class OrganizationApplicationService(ApplicationService):
         require_org_access(self.actor, organization_id)
         return self.transact(lambda: self.service.update_organization(organization_id, data))
 
+    def delete(self, organization_id: str) -> dict[str, str]:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        self.transact(lambda: self.service.delete_organization(organization_id))
+        return {"status": "deleted", "organization_id": organization_id}
+
 
 class VehicleApplicationService(ApplicationService):
     def __init__(self, *args, repository: VehicleRepository, **kwargs) -> None:
@@ -154,7 +172,7 @@ class VehicleApplicationService(ApplicationService):
         require_org_access(self.actor, data.organization_id)
         return self.transact(lambda: self.service.create_vehicle(data))
 
-    def list(self, organization_id: str | None = None) -> list[VehicleORM]:
+    def list(self, organization_id: str | None = None) -> List[VehicleORM]:
         require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.DRIVER])
         if organization_id:
             require_org_access(self.actor, organization_id)
@@ -186,7 +204,7 @@ class DriverApplicationService(ApplicationService):
         require_org_access(self.actor, data.organization_id)
         return self.transact(lambda: self.service.create_driver(data))
 
-    def list(self, organization_id: str | None = None) -> list[DriverORM]:
+    def list(self, organization_id: str | None = None) -> List[DriverORM]:
         require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.DRIVER])
         if organization_id:
             require_org_access(self.actor, organization_id)
@@ -206,6 +224,13 @@ class DriverApplicationService(ApplicationService):
         if data.organization_id:
             require_org_access(self.actor, data.organization_id)
         return self.transact(lambda: self.service.update_driver(driver_id, data))
+
+    def delete(self, driver_id: str) -> dict[str, str]:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        driver = self.service.get_driver(driver_id)
+        require_org_access(self.actor, driver.organization_id)
+        self.transact(lambda: self.service.delete_driver(driver_id))
+        return {"status": "deleted", "driver_id": driver_id}
 
 
 class StopApplicationService(ApplicationService):
@@ -295,7 +320,7 @@ class ShiftApplicationService(ApplicationService):
         require_roles(self.actor, [UserRole.DRIVER])
         return self.service.get_active_shift_for_driver(self.actor.user_id if self.actor else "")
 
-    def list(self, organization_id: str | None = None) -> list[DriverShiftORM]:
+    def list(self, organization_id: str | None = None) -> List[DriverShiftORM]:
         require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
         if organization_id is None and self.actor and self.actor.role != UserRole.SUPER_ADMIN:
             organization_id = self.actor.organization_id
@@ -310,7 +335,7 @@ class TripApplicationService(ApplicationService):
         super().__init__(*args, **kwargs)
         self.service = service
 
-    def list(self, organization_id: str | None = None) -> list[TripORM]:
+    def list(self, organization_id: str | None = None) -> List[TripORM]:
         if self.actor:
             require_authenticated(self.actor)
             if organization_id:
@@ -319,8 +344,14 @@ class TripApplicationService(ApplicationService):
                 organization_id = self.actor.organization_id
         return self.service.list_trips(organization_id=organization_id)
 
-    def list_active(self, organization_id: str | None = None) -> List[TripORM]:
+    def list_all(self) -> List[TripORM]:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        return self.service.list_trips()
+
+    def list_active(self, organization_id: str | None = None, route_id: str | None = None) -> List[TripORM]:
         trips = self.list(organization_id=organization_id)
+        if route_id:
+            trips = [trip for trip in trips if trip.route_id == route_id]
         return [trip for trip in trips if trip.state in {"planned", "boarding", "enroute"}]
 
     def get(self, trip_id: str) -> TripORM:
@@ -334,6 +365,14 @@ class TripApplicationService(ApplicationService):
         require_org_access(self.actor, request.organization_id)
         return self.transact(lambda: self.service.create_trip(request))
 
+    def update(self, trip_id: str, data: TripUpdate) -> TripORM:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN])
+        trip = self.service.get_trip(trip_id)
+        require_org_access(self.actor, trip.organization_id)
+        if getattr(data, "organization_id", None):
+            require_org_access(self.actor, data.organization_id)
+        return self.transact(lambda: self.service.update_trip(trip_id, data))
+
     def transition(self, trip_id: str, new_state: TripStatus) -> TripORM:
         require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.DRIVER])
         trip = self.service.get_trip(trip_id)
@@ -342,6 +381,18 @@ class TripApplicationService(ApplicationService):
 
     def accept(self, trip_id: str) -> TripORM:
         return self.transition(trip_id, TripStatus.BOARDING)
+
+    def start(self, trip_id: str) -> TripORM:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.DRIVER, UserRole.MARSHAL])
+        trip = self.service.get_trip(trip_id)
+        require_org_access(self.actor, trip.organization_id)
+        return self.transact(lambda: self.service.start_trip(trip_id))
+
+    def depart(self, trip_id: str) -> TripORM:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.DRIVER, UserRole.MARSHAL])
+        trip = self.service.get_trip(trip_id)
+        require_org_access(self.actor, trip.organization_id)
+        return self.transact(lambda: self.service.depart_trip(trip_id))
 
 
 class DispatchApplicationService(ApplicationService):
@@ -371,9 +422,24 @@ class BookingApplicationService(ApplicationService):
         actor = require_roles(self.actor, [UserRole.PASSENGER])
         return self.transact(lambda: self.service.create_booking(request, actor.user_id or ""))
 
+    def create_admin(self, request: CreateBookingAdminRequest) -> BookingCreatedResponse:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        return self.transact(lambda: self.service.create_booking_admin(request))
+
     def get(self, booking_id: str) -> BookingDetailResponse:
         actor = require_roles(self.actor, [UserRole.PASSENGER])
         return self.service.get_booking(booking_id, actor.user_id or "")
+
+    def list_all(self) -> List[BookingRead]:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        return [BookingRead.model_validate(booking) for booking in self.service.booking_repository.all()]
+
+    def get_admin(self, booking_id: str) -> BookingDetailResponse:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        booking = self.service.booking_repository.get(booking_id)
+        if booking is None:
+            raise NotFoundError("Booking not found")
+        return BookingDetailResponse(booking=booking)
 
     def pay(self, booking_id: str, request: PaymentRequest) -> BookingPaymentResponse:
         actor = require_roles(self.actor, [UserRole.PASSENGER])
@@ -382,6 +448,10 @@ class BookingApplicationService(ApplicationService):
     def cancel(self, booking_id: str) -> BookingCancelResponse:
         actor = require_roles(self.actor, [UserRole.PASSENGER])
         return self.transact(lambda: self.service.cancel_booking(booking_id, actor.user_id or ""))
+
+    def cancel_admin(self, booking_id: str) -> BookingCancelResponse:
+        require_roles(self.actor, [UserRole.SUPER_ADMIN])
+        return self.transact(lambda: self.service.cancel_booking_as_operator(booking_id))
 
 
 class PaymentApplicationService(ApplicationService):
@@ -407,6 +477,36 @@ class QRApplicationService(ApplicationService):
         return self.transact(lambda: self.service.validate_and_scan(request))
 
 
+class RankApplicationService(ApplicationService):
+    def __init__(self, *args, service: RankService, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.service = service
+
+    def issue_ticket(self, request: RankTicketIssueRequest) -> RankQueueTicketRead:
+        require_roles(self.actor, [UserRole.MARSHAL, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN])
+        return self.transact(lambda: self.service.issue_ticket(request))
+
+    def assign_ticket(self, request: RankTicketAssignRequest) -> RankQueueTicketRead:
+        require_roles(self.actor, [UserRole.MARSHAL, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN])
+        return self.transact(lambda: self.service.assign_ticket(request))
+
+    def board_ticket(self, ticket_id: str) -> RankQueueTicketRead:
+        require_roles(self.actor, [UserRole.MARSHAL, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN])
+        return self.transact(lambda: self.service.board_ticket(ticket_id))
+
+    def authorize_cash_booking(self, request: RankCashAuthorizationRequest) -> dict[str, object]:
+        require_roles(self.actor, [UserRole.MARSHAL, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN])
+        return self.transact(lambda: self.service.authorize_cash_booking(request))
+
+    def open_trip(self, trip_id: str) -> dict[str, str]:
+        require_roles(self.actor, [UserRole.MARSHAL, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN, UserRole.DRIVER])
+        return self.transact(lambda: self.service.open_trip(trip_id))
+
+    def depart_trip(self, trip_id: str) -> dict[str, str]:
+        require_roles(self.actor, [UserRole.MARSHAL, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN, UserRole.DRIVER])
+        return self.transact(lambda: self.service.depart_trip(trip_id))
+
+
 class SystemApplicationService(ApplicationService):
     def seed(self) -> dict[str, str]:
         self.transact(lambda: seed_reference_data(self.session))
@@ -415,7 +515,7 @@ class SystemApplicationService(ApplicationService):
     def health(self) -> dict[str, str]:
         return {"status": "ok"}
 
-    def recent_events(self, limit: int = 20) -> list[dict[str, object]]:
+    def recent_events(self, limit: int = 20) -> List[dict[str, object]]:
         from sqlalchemy import select
 
         from app.core.events import DomainEventRecordORM

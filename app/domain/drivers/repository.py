@@ -38,3 +38,7 @@ class DriverRepository:
         self.session.flush()
         self.session.refresh(driver)
         return driver
+
+    def delete(self, driver: DriverORM) -> None:
+        self.session.delete(driver)
+        self.session.flush()

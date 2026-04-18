@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import DateTime, JSON, String
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
@@ -53,13 +54,14 @@ def record_audit_log(
 ) -> AuditLogORM:
     inferred_entity_type = entity_type or action.split(".", 1)[0]
     inferred_entity_id = entity_id or _extract_entity_id(payload)
+    encoded_payload = jsonable_encoder(payload)
     record = AuditLogORM(
         id=f"audit-{uuid4().hex}",
         action=action,
         entity_type=inferred_entity_type,
         entity_id=inferred_entity_id,
         actor_id=actor_id,
-        payload=payload,
+        payload=encoded_payload,
         recorded_at=datetime.now(UTC),
     )
     session.add(record)

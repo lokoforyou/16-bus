@@ -40,3 +40,11 @@ async def update_driver(
     services: ApplicationServices = Depends(get_application_services),
 ):
     return services.drivers.update(driver_id, data)
+
+
+@router.delete("/{driver_id}")
+async def delete_driver(
+    driver_id: str,
+    services: ApplicationServices = Depends(get_application_services),
+):
+    return services.drivers.delete(driver_id)

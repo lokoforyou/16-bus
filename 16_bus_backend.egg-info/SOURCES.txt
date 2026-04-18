@@ -66,6 +66,7 @@ app/core/logging.py
 app/core/middleware.py
 app/core/security.py
 app/domain/__init__.py
+app/domain/events.py
 app/domain/auth/models.py
 app/domain/auth/permissions.py
 app/domain/auth/repository.py
@@ -109,9 +110,13 @@ app/domain/qr/models.py
 app/domain/qr/repository.py
 app/domain/qr/schemas.py
 app/domain/qr/service.py
+app/domain/qr/state_machine.py
 app/domain/ranks/__init__.py
 app/domain/ranks/models.py
 app/domain/ranks/repository.py
+app/domain/ranks/schemas.py
+app/domain/ranks/service.py
+app/domain/ranks/state_machine.py
 app/domain/reporting/__init__.py
 app/domain/routes/__init__.py
 app/domain/routes/models.py
@@ -152,10 +157,13 @@ app/workers/tasks.py
 tests/test_application_services.py
 tests/test_architecture_repairs.py
 tests/test_auth.py
+tests/test_booking_invariants.py
 tests/test_bookings.py
 tests/test_cli_smoke.py
 tests/test_dispatch_board.py
 tests/test_health.py
 tests/test_ops.py
 tests/test_organizations.py
+tests/test_queue_flow.py
+tests/test_trip_state_transitions.py
 tests/test_tui.py
